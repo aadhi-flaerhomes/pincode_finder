@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
 
   spec.summary = "A gem to find Indian pincodes."
   spec.description = "This gem takes a pincode as input and returns the associated district and state."
-  spec.homepage = "https://github.com/flaerhomes/pincode_finder"
+  spec.homepage = "https://github.com/aadhi-flaerhomes/pincode_finder"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.0.0"
 
