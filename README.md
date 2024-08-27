@@ -1,5 +1,4 @@
 
-```markdown
 # PincodeFinder
 
 **PincodeFinder** is a simple Ruby gem that allows you to find details about Indian pincodes, such as the pincode, district, and state, based on the pincode provided.
