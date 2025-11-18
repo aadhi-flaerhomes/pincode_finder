@@ -7,8 +7,18 @@ require "base64"
 
 require_relative "pincode_finder/config"
 require_relative "pincode_finder/github_client"
+require "net/http"
+require "uri"
+require "fileutils"
+require "zlib"
+require "base64"
+
+require_relative "pincode_finder/config"
+require_relative "pincode_finder/github_client"
 
 module PincodeFinder
+  DATA_FILE  = File.expand_path("../data/pincode_data_optimized.json.gz", __dir__)
+  DETAILS_HASH = "{ district: <district>, state: <state>}".freeze
   DATA_FILE  = File.expand_path("../data/pincode_data_optimized.json.gz", __dir__)
   DETAILS_HASH = "{ district: <district>, state: <state>}".freeze
 
@@ -19,12 +29,9 @@ module PincodeFinder
     record = data[pincode]
 
     if record
-      puts "✅ Pincode found!"
       record["pincode"] = pincode
       record
     else
-      puts "❌ Pincode #{pincode} not found."
-      puts "You can add it using: PincodeFinder.add_pincode(#{pincode}, #{DETAILS_HASH})"
       {
         error: "Pincode not found",
         message: "You can add it using: PincodeFinder.add_pincode(#{pincode}, #{DETAILS_HASH})"
@@ -41,8 +48,6 @@ module PincodeFinder
     if verified
       status, message = input_details_validation(api_data, input_details)
       return { status: "failure", message: message } unless status
-    else
-      puts "⚠️ Pincode #{pincode} could not be verified online"
     end
 
     data = load_data
@@ -138,10 +143,8 @@ module PincodeFinder
         merged = remote[:json].merge(data)
 
         client.update_file(merged, sha)
-
-        puts "☁️ Synced to GitHub!"
-      rescue StandardError => e
-        puts "🚫 GitHub sync failed: #{e.message}"
+      rescue StandardError
+        nil
       end
     end
   end

@@ -58,13 +58,7 @@ module PincodeFinder
       req["Accept"] = "application/vnd.github+json"
       req.body = body.to_json
 
-      res = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) { |h| h.request(req) }
-
-      if res.is_a?(Net::HTTPSuccess)
-        puts "☁️ Synced #{@file} to GitHub!"
-      else
-        warn "GitHub PUT failed: #{res.code} #{res.body}"
-      end
+      Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) { |h| h.request(req) }
     end
   end
 end
