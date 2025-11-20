@@ -7,19 +7,9 @@ require "base64"
 
 require_relative "pincode_finder/config"
 require_relative "pincode_finder/github_client"
-require "net/http"
-require "uri"
-require "fileutils"
-require "zlib"
-require "base64"
-
-require_relative "pincode_finder/config"
-require_relative "pincode_finder/github_client"
 
 module PincodeFinder
-  DATA_FILE  = File.expand_path("../data/pincode_data_optimized.json.gz", __dir__)
-  DETAILS_HASH = "{ district: <district>, state: <state>}".freeze
-  DATA_FILE  = File.expand_path("../data/pincode_data_optimized.json.gz", __dir__)
+  DATA_FILE = File.expand_path("../data/pincode_data_optimized.json.gz", __dir__)
   DETAILS_HASH = "{ district: <district>, state: <state>}".freeze
 
   def self.find(pincode)
@@ -29,8 +19,12 @@ module PincodeFinder
     record = data[pincode]
 
     if record
-      record["pincode"] = pincode
-      record
+      {
+        pincode: pincode,
+        state: record["state"],
+        district: record["district"],
+        verified: record["verified"] || true
+      }
     else
       {
         error: "Pincode not found",
@@ -43,14 +37,15 @@ module PincodeFinder
     pincode = pincode.to_s
     input_details = normalize_and_filter(input_details)
 
-    verified, api_data = verify_pincode(pincode)
-
-    if verified
-      status, message = input_details_validation(api_data, input_details)
-      return { status: "failure", message: message } unless status
-    end
-
     data = load_data
+    record = data[pincode]
+
+    puts "data_presence: #{data.any?},\nrecord: #{record}"
+
+    return { status: "failure", error: "Pincode already present in the directory" } unless record.nil?
+
+    verified, error = validate_pincode(pincode, input_details)
+    return { status: "failure", error: error } unless error.nil?
 
     data[pincode] = input_details.merge("verified" => verified)
 
@@ -60,17 +55,27 @@ module PincodeFinder
 
     {
       status: "success",
-      pincode: pincode,
-      details: input_details
+      data: data[pincode],
+      error: nil
     }
+  end
+
+  def self.validate_pincode(pincode, input_details)
+    verified, api_data = verify_pincode(pincode)
+    return [false, nil] unless verified
+
+    status, error = input_details_validation(api_data, input_details)
+    return [false, error] unless status
+
+    [verified, nil]
   end
 
   def self.verify_pincode(pincode)
     begin
       uri = URI("https://api.postalpincode.in/pincode/#{pincode}")
 
-      response = Net::HTTP.start(uri.host, uri.port, use_ssl: true, 
-                                open_timeout: 3, read_timeout: 3) do |http|
+      response = Net::HTTP.start(uri.host, uri.port, use_ssl: true,
+                                                     open_timeout: 3, read_timeout: 3) do |http|
         http.get(uri.request_uri)
       end
 
@@ -88,10 +93,50 @@ module PincodeFinder
       details = po[0].slice("Division", "District", "State")
 
       [true, details]
-    rescue StandardError => e
-      warn "⚠️ Pincode verification failed: #{e.class} - #{e.message}"
+    rescue StandardError
       [false, nil]
     end
+  end
+
+  def self.update_pincode(pincode, input_details)
+    pincode = pincode.to_s
+    input_details = normalize_and_filter(input_details)
+    data = load_data
+
+    record = data[pincode]
+    return { status: "failure", error: "pincode not found" } unless record
+
+    verified, error = validate_pincode(pincode, input_details)
+    return { status: "failure", error: error } unless error.nil?
+
+    data[pincode] = input_details.merge("verified" => verified)
+    save_data(data)
+    sync_to_github(data)
+
+    {
+      status: "success",
+      data: data[pincode],
+      error: nil
+    }
+  end
+
+  def self.delete_pincode(pincode)
+    pincode = pincode.to_s
+    data = load_data
+
+    record = data[pincode]
+    return { status: "failure", error: "pincode not found" } unless record
+
+    data.delete(pincode)
+
+    save_data(data)
+    sync_to_github(data)
+
+    {
+      status: "success",
+      data: {},
+      error: nil
+    }
   end
 
   def self.input_details_validation(data, input_details)
@@ -140,9 +185,7 @@ module PincodeFinder
         remote = client.get_file_with_sha
         sha    = remote[:sha]
 
-        merged = remote[:json].merge(data)
-
-        client.update_file(merged, sha)
+        client.update_file(data, sha)
       rescue StandardError
         nil
       end
