@@ -40,8 +40,6 @@ module PincodeFinder
     data = load_data
     record = data[pincode]
 
-    puts "data_presence: #{data.any?},\nrecord: #{record}"
-
     return { status: "failure", error: "Pincode already present in the directory" } unless record.nil?
 
     verified, error = validate_pincode(pincode, input_details)
