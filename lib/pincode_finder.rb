@@ -9,7 +9,7 @@ require_relative "pincode_finder/config"
 require_relative "pincode_finder/github_client"
 
 module PincodeFinder
-  DATA_FILE = File.expand_path("../data/pincode_data_optimized.json.gz", __dir__)
+  DATA_FILE = File.expand_path("../data/pincode_data.json.gz", __dir__)
   DETAILS_HASH = "{ district: <district>, state: <state>}".freeze
 
   def self.find(pincode)
@@ -23,7 +23,7 @@ module PincodeFinder
         pincode: pincode,
         state: record["state"],
         district: record["district"],
-        verified: record["verified"] || true
+        verified: record["verified"] || "true"
       }
     else
       {
@@ -45,7 +45,7 @@ module PincodeFinder
     verified, error = validate_pincode(pincode, input_details)
     return { status: "failure", error: error } unless error.nil?
 
-    data[pincode] = input_details.merge("verified" => verified)
+    data[pincode] = input_details.merge("verified" => verified.to_s)
 
     save_data(data)
 
