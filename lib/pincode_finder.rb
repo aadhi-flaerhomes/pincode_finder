@@ -21,7 +21,7 @@ module PincodeFinder
     if record
       {
         pincode: pincode,
-        state: record["state"],
+        state: record["statename"],
         district: record["district"],
         verified: record["verified"] || "true"
       }
